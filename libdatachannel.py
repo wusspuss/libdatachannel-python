@@ -1,10 +1,9 @@
 import json
 import time
 from cffi import FFI
-from codegen import *
 from enum import IntEnum
 
-from enum import IntEnum
+from enum import Enum
 from cffi import FFI
 ffibuilder = FFI()
 ffibuilder.cdef('''
@@ -450,12 +449,12 @@ class NalUnitSeparator(Enum):
 @ffi.def_extern()
 def wrapper_local_description_callback(pc, sdp, type, ptr):
     cb = PeerConnection.assoc[pc].local_description_callback
-    cb and cb(ffi.string(sdp).decode(), ffi.string(type).decode(), )
+    cb and cb(ffi.string(sdp), ffi.string(type), )
 
 @ffi.def_extern()
 def wrapper_local_candidate_callback(pc, cand, mid, ptr):
     cb = PeerConnection.assoc[pc].local_candidate_callback
-    cb and cb(ffi.string(cand).decode(), ffi.string(mid).decode(), )
+    cb and cb(ffi.string(cand), ffi.string(mid), )
 
 @ffi.def_extern()
 def wrapper_state_change_callback(pc, state, ptr):
@@ -474,32 +473,32 @@ def wrapper_signaling_state_change_callback(pc, state, ptr):
 
 @ffi.def_extern()
 def wrapper_open_callback(id, ptr):
-    cb = CommonChannel.assoc[pc].open_callback
+    cb = CommonChannel.assoc[id].open_callback
     cb and cb()
 
 @ffi.def_extern()
 def wrapper_closed_callback(id, ptr):
-    cb = CommonChannel.assoc[pc].closed_callback
+    cb = CommonChannel.assoc[id].closed_callback
     cb and cb()
 
 @ffi.def_extern()
 def wrapper_error_callback(id, error, ptr):
-    cb = CommonChannel.assoc[pc].error_callback
-    cb and cb(ffi.string(error).decode(), )
+    cb = CommonChannel.assoc[id].error_callback
+    cb and cb(ffi.string(error), )
 
 @ffi.def_extern()
 def wrapper_message_callback(id, message, size, ptr):
-    cb = CommonChannel.assoc[pc].message_callback
-    cb and cb(ffi.string(message).decode(), size, )
+    cb = CommonChannel.assoc[id].message_callback
+    cb and cb(ffi.string(message), size, )
 
 @ffi.def_extern()
 def wrapper_buffered_amount_low_callback(id, ptr):
-    cb = CommonChannel.assoc[pc].buffered_amount_low_callback
+    cb = CommonChannel.assoc[id].buffered_amount_low_callback
     cb and cb()
 
 @ffi.def_extern()
 def wrapper_available_callback(id, ptr):
-    cb = CommonChannel.assoc[pc].available_callback
+    cb = CommonChannel.assoc[id].available_callback
     cb and cb()
 
 @ffi.def_extern()
@@ -533,6 +532,11 @@ class TooSmall(RtcError):
 
 
 
+@ffi.def_extern()
+def wrapper_message_callback(id, message, size, ptr):
+    cb = CommonChannel.assoc[id].message_callback
+    cb and cb(ffi.buffer(message, size), size, )
+
 def checkErr(func, *args, **kwargs):
     i=func(*args, **kwargs)
     if i<0:
@@ -540,20 +544,27 @@ def checkErr(func, *args, **kwargs):
     return i
 
 def outString(func, id_):
+    """
+    for functions like
+    int rtcGetLocalDescription(int pc, char *buffer, int size)
+    1. call with buffer=NULL to get size
+    2. allocate a buffer of that size
+    3. call again with that buffer
+    4. convert result to Python string
+    """
     size = checkErr(func,id_, ffi.NULL, 0)
-
-    # if size < 0:
-    #     raise ValueError(RtcReturn(size))
     buf=ffi.new(f"char[{size}]")
     func(id_, buf, size)
     return ffi.string(buf).decode()
-    
+
+
 class CommonChannel:
     assoc = {}
     
     # DataChannel, Track, and WebSocket common API
     def __init__(self, id_):
         self.id=id_
+        self.assoc[self.id]=self
         pass
         lib.rtcSetAvailableCallback(self.id, lib.wrapper_available_callback)
         lib.rtcSetBufferedAmountLowCallback(self.id, lib.wrapper_buffered_amount_low_callback)
@@ -569,33 +580,30 @@ class CommonChannel:
         self.open_callback = None
 
     def send_message(self, data, size, ):
-        checkErr(lib.rtcSendMessage, self.id, data, size, )
+        return checkErr(lib.rtcSendMessage, self.id, data, size, )
     def close(self, ):
-        checkErr(lib.rtcClose, self.id, )
+        return checkErr(lib.rtcClose, self.id, )
     def delete(self, ):
-        checkErr(lib.rtcDelete, self.id, )
+        return checkErr(lib.rtcDelete, self.id, )
     def get_buffered_amount(self, ):
-        checkErr(lib.rtcGetBufferedAmount, self.id, )
+        return checkErr(lib.rtcGetBufferedAmount, self.id, )
     def set_buffered_amount_low_threshold(self, amount, ):
-        checkErr(lib.rtcSetBufferedAmountLowThreshold, self.id, amount, )
+        return checkErr(lib.rtcSetBufferedAmountLowThreshold, self.id, amount, )
     def get_available_amount(self, ):
-        checkErr(lib.rtcGetAvailableAmount, self.id, )
+        return checkErr(lib.rtcGetAvailableAmount, self.id, )
     def set_needs_to_send_rtcp_sr(self, ):
-        checkErr(lib.rtcSetNeedsToSendRtcpSr, self.id, )
+        return checkErr(lib.rtcSetNeedsToSendRtcpSr, self.id, )
     buffered_amount = property(get_buffered_amount, )
     available_amount = property(get_available_amount, )
     
 
 class DataChannel(CommonChannel):
-    assoc = {}
     def __init__(self, pc, name):
         super().__init__(lib.rtcCreateDataChannel(pc.id, name.encode()))
-        self.assoc[self.id]=self
-        
     def delete_data_channel(self, ):
-        checkErr(lib.rtcDeleteDataChannel, self.id, )
+        return checkErr(lib.rtcDeleteDataChannel, self.id, )
     def get_data_channel_stream(self, ):
-        checkErr(lib.rtcGetDataChannelStream, self.id, )
+        return checkErr(lib.rtcGetDataChannelStream, self.id, )
     def get_data_channel_label(self):
         return outString(lib.rtcGetDataChannelLabel, self.id)
     def get_data_channel_protocol(self):
@@ -604,7 +612,10 @@ class DataChannel(CommonChannel):
     data_channel_label = property(get_data_channel_label, )
     data_channel_protocol = property(get_data_channel_protocol, )
     
-    
+
+class Track(CommonChannel):
+    pass
+
 class PeerConnection:
     # C bindings PeerConnection ids to objects of this class
     assoc = {}
@@ -612,8 +623,7 @@ class PeerConnection:
     def __init__(self):
         self.conf=ffi.new("rtcConfiguration *")
         self.id=lib.rtcCreatePeerConnection(self.conf)
-        print("Created peerconn:", self.id)
-        self.conf=ffi.gc(self.conf, lambda: print(123) and lib.rtcDeletePeerConnection(self.id))
+        self.conf=ffi.gc(self.conf, lambda *args: lib.rtcDeletePeerConnection(self.id))
         self.assoc[self.id]=self
         lib.rtcSetDataChannelCallback(self.id, lib.wrapper_data_channel_callback)
         lib.rtcSetGatheringStateChangeCallback(self.id, lib.wrapper_gathering_state_change_callback)
@@ -641,15 +651,15 @@ class PeerConnection:
         del self.assoc[self.id]
 
     def close_peer_connection(self, ):
-        checkErr(lib.rtcClosePeerConnection, self.id, )
+        return checkErr(lib.rtcClosePeerConnection, self.id, )
     def delete_peer_connection(self, ):
-        checkErr(lib.rtcDeletePeerConnection, self.id, )
+        return checkErr(lib.rtcDeletePeerConnection, self.id, )
     def set_local_description(self, type, ):
-        checkErr(lib.rtcSetLocalDescription, self.id, type, )
+        return checkErr(lib.rtcSetLocalDescription, self.id, type, )
     def set_remote_description(self, sdp, type, ):
-        checkErr(lib.rtcSetRemoteDescription, self.id, sdp, type, )
+        return checkErr(lib.rtcSetRemoteDescription, self.id, sdp, type, )
     def add_remote_candidate(self, cand, mid, ):
-        checkErr(lib.rtcAddRemoteCandidate, self.id, cand, mid, )
+        return checkErr(lib.rtcAddRemoteCandidate, self.id, cand, mid, )
     def get_local_description(self):
         return outString(lib.rtcGetLocalDescription, self.id)
     def get_remote_description(self):
@@ -663,13 +673,13 @@ class PeerConnection:
     def get_remote_address(self):
         return outString(lib.rtcGetRemoteAddress, self.id)
     def get_selected_candidate_pair(self, local, localSize, remote, remoteSize, ):
-        checkErr(lib.rtcGetSelectedCandidatePair, self.id, local, localSize, remote, remoteSize, )
+        return checkErr(lib.rtcGetSelectedCandidatePair, self.id, local, localSize, remote, remoteSize, )
     def get_max_data_channel_stream(self, ):
-        checkErr(lib.rtcGetMaxDataChannelStream, self.id, )
+        return checkErr(lib.rtcGetMaxDataChannelStream, self.id, )
     def create_data_channel(self, label, ):
-        checkErr(lib.rtcCreateDataChannel, self.id, label, )
+        return checkErr(lib.rtcCreateDataChannel, self.id, label, )
     def add_track(self, mediaDescriptionSdp, ):
-        checkErr(lib.rtcAddTrack, self.id, mediaDescriptionSdp, )
+        return checkErr(lib.rtcAddTrack, self.id, mediaDescriptionSdp, )
     local_description = property(get_local_description, set_local_description)
     remote_description = property(get_remote_description, set_remote_description)
     local_description_type = property(get_local_description_type, )
@@ -686,6 +696,10 @@ class PeerConnection:
     def override_set_remote_description(self, desc):
         self.set_remote_description(desc, ffi.NULL)
     remote_description=property(get_remote_description, override_set_remote_description)
+
+    _generated_add_track=add_track
+    def add_track(self, mediaDescriptionSdp, ):
+        return Track(self._generated_add_track(mediaDescriptionSdp))
     
 def init_logger(level):
     lib.rtcInitLogger(level.value, ffi.NULL)

@@ -60,7 +60,8 @@ proc pythonMarshalArgsForCb {argList} {
     set pythonCbMarshal  {}
     foreach {type arg} $argList {
 	if {$type == "char*"} {
-	    append pythonCbMarshal "ffi.string($arg).decode(), "
+	    # append pythonCbMarshal "ffi.string($arg).decode(), "
+	    append pythonCbMarshal "ffi.string($arg), "
 	    continue
 	}
 	if {$type in "int char*"} {
@@ -85,7 +86,7 @@ proc doCallbackTypes {header} {
 	# remove newlines
 	set args [string map {\n " "} $args]
 	# zap whitespace
-	set args [regsub -all {\s+} $args { }]    
+	set args [regsub -all {\s+} $args { }]
 	set pythonArgs [join [
 			      lmap pair [split $args ,] {
 				  string map {* "" " " ""} [lindex $pair end]
@@ -129,15 +130,14 @@ proc generateCallbacks {header} {
     global enums ;# from doEnums
     global cbArgs ;# from doCallbackTypes
     foreach {- setter which cbType} [regexp -inline -line -all {int (rtcSet.*Callback)\(int (..), (\S+)} $header] {
-	set assocDict [dict get {pc PeerConnection.assoc id CommonChannel.assoc} $which]
-	
+	set assocDict [dict get {pc PeerConnection.assoc id CommonChannel.assoc} $which]	
 	set pythonCallbackName [snakeCase [string range $setter 6 end]]
-
 	# cdef
 	append res(cbs) "extern \"Python\" void wrapper_$pythonCallbackName\($cbArgs($cbType)\);\n"
+
 	append res(cbs_defs) "@ffi.def_extern()\n"
 	append res(cbs_defs) "def wrapper_$pythonCallbackName\([pythonArgsFromCArgs $cbArgs($cbType)]\):\n"
-	append res(cbs_defs) "    cb = $assocDict\[pc\].$pythonCallbackName\n"
+	append res(cbs_defs) "    cb = $assocDict\[$which\].$pythonCallbackName\n"
 	
 	# convert to Tcl list
 	# discard void *
@@ -199,7 +199,7 @@ proc generateFunctions {header} {
 	
 	set funcHeader "def [set pythonName](self, $pythonArgs):"
 	append methods($which) $funcHeader\n
-	append methods($which) "    checkErr(lib.rtc[set funcName], self.id, $pythonArgs)\n"
+	append methods($which) "    return checkErr(lib.rtc[set funcName], self.id, $pythonArgs)\n"
     }
     
     foreach getterIdx [lsearch -all -glob $pythonNames get_*] {
@@ -219,7 +219,7 @@ set res(enums) [doEnums $header]
 generateFunctions $header
 doCallbackTypes $header
 generateCallbacks $header
-append o "from enum import IntEnum\n"
+append o "from enum import Enum\n"
 append o "from cffi import FFI\n"
 append o "ffibuilder = FFI()\n"
 append o "ffibuilder.cdef('''\n$header\n''')\n"
