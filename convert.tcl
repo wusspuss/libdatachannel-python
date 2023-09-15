@@ -130,7 +130,14 @@ proc generateCallbacks {header} {
     global enums ;# from doEnums
     global cbArgs ;# from doCallbackTypes
     foreach {- setter which cbType} [regexp -inline -line -all {int (rtcSet.*Callback)\(int (..), (\S+)} $header] {
-	set assocDict [dict get {pc PeerConnection.assoc id CommonChannel.assoc} $which]	
+	set assocDict [dict get {pc PeerConnection.assoc id CommonChannel.assoc} $which]
+
+	if {![info exists cbArgs($cbType)]} {
+	    # this is specifically for rtcInterceptorCallbackFunc so far - no need + no time on my side
+	    puts "Skipping $cbType"
+	    continue
+	}
+	
 	set pythonCallbackName [snakeCase [string range $setter 6 end]]
 	# cdef
 	append res(cbs) "extern \"Python\" void wrapper_$pythonCallbackName\($cbArgs($cbType)\);\n"
