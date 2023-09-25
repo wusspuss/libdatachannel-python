@@ -226,7 +226,7 @@ set res(enums) [doEnums $header]
 generateFunctions $header
 doCallbackTypes $header
 generateCallbacks $header
-append o "from enum import Enum\n"
+
 append o "from cffi import FFI\n"
 append o "ffibuilder = FFI()\n"
 append o "ffibuilder.cdef('''\n$header\n''')\n"
@@ -239,9 +239,9 @@ ffibuilder.set_source("_libdatachannel_cffi",
 		      libraries=['datachannel'])   # library name, for the linker
 }
 append o "ffibuilder.compile(verbose=True)\n"
-append o "from _libdatachannel_cffi import ffi, lib\n\n"
-append o $res(enums)
-append o $res(cbs_defs)
+
+
+
 
 proc generateErrors {header} {
     foreach {- cName val} [regexp -inline -line -all {\#define RTC_ERR_(\S+) (-\d+)} $header] {
@@ -260,7 +260,7 @@ proc generateErrors {header} {
     }
     set e 
 }
-append o \n[generateErrors $header]\n
+
 
 proc indent {s i} {
     set indent [string repeat " "  $i]
@@ -277,10 +277,12 @@ set replacements {
     "    # {{METHODS_DATA_CHANNEL}}" [indent $methods(dc) 4] \
 }
 
-# set replacements {
-#     "# {{FFI_BOILERPLATE}}" $o
-# }
+exec echo $o > src/libdatachannel/libdatachannel_build.py
+set o ""
 
-exec echo [string map [eval list $replacements] [exec cat libdatachannel_inc.py]] > libdatachannel.py
-
-
+append o "from enum import Enum\n"
+append o "from _libdatachannel_cffi import ffi, lib\n\n"
+append o $res(enums)
+append o $res(cbs_defs)
+append o \n[generateErrors $header]\n
+exec echo [string map [eval list $replacements] [exec cat libdatachannel_inc.py]] > src/libdatachannel/__init__.py
