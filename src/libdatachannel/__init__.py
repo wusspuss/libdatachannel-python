@@ -143,12 +143,12 @@ def wrapper_available_callback(id, ptr):
 @ffi.def_extern()
 def wrapper_data_channel_callback(pc, dc, ptr):
     cb = PeerConnection.assoc[pc].data_channel_callback
-    cb and cb(dc, )
+    cb and cb(DataChannel.get_by_id(dc), )
 
 @ffi.def_extern()
 def wrapper_track_callback(pc, tr, ptr):
     cb = PeerConnection.assoc[pc].track_callback
-    cb and cb(tr, )
+    cb and cb(Track.get_by_id(tr), )
 
 
 class RtcError(Exception):
@@ -217,7 +217,9 @@ class CommonChannel:
         self.error_callback = None
         self.message_callback = None
         self.open_callback = None
-
+    @classmethod
+    def get_by_id(cls, id_):
+        return cls.assoc.get(id_) or cls(id_)
     def send_message(self, data, size, ):
         return checkErr(lib.rtcSendMessage, self.id, data, size, )
     def close(self, ):

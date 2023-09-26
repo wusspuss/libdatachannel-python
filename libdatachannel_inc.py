@@ -40,7 +40,9 @@ class CommonChannel:
         self.assoc[self.id]=self
         pass
         # {{ NONE_INITIALIZE_CALLBACKS_COMMON_CHANNEL }}
-
+    @classmethod
+    def get_by_id(cls, id_):
+        return cls.assoc.get(id_) or cls(id_)
     # {{METHODS_COMMON_CHANNEL}}
 
 class DataChannel(CommonChannel):

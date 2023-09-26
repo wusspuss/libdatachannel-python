@@ -59,6 +59,13 @@ proc pythonMarshalArgsForCb {argList} {
     # puts $argList
     set pythonCbMarshal  {}
     foreach {type arg} $argList {
+	if {$type == "int"} {
+	    if {$arg in "tr dc"} {
+		set class [dict get {tr Track dc DataChannel} $arg]
+		append pythonCbMarshal "$class.get_by_id($arg), "
+		continue
+	    }
+	}
 	if {$type == "char*"} {
 	    # append pythonCbMarshal "ffi.string($arg).decode(), "
 	    append pythonCbMarshal "ffi.string($arg), "
