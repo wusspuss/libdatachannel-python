@@ -52,6 +52,7 @@ class DataChannel(CommonChannel):
 
 class Track(CommonChannel):
     pass
+    # {{METHODS_TRACK}}
 
 class PeerConnection:
     # C bindings PeerConnection ids to objects of this class

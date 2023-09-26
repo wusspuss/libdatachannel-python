@@ -287,6 +287,7 @@ set replacements {
     "    # {{METHODS_PEER_CONNECTION}}" [indent $methods(pc) 4] \
     "    # {{METHODS_COMMON_CHANNEL}}" [indent $methods(id) 4] \
     "    # {{METHODS_DATA_CHANNEL}}" [indent $methods(dc) 4] \
+    "    # {{METHODS_TRACK}}" [indent $methods(tr) 4] \
 }
 
 exec echo $o > src/libdatachannel/libdatachannel_build.py

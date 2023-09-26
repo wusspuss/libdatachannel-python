@@ -256,6 +256,17 @@ class DataChannel(CommonChannel):
 
 class Track(CommonChannel):
     pass
+    def delete_track(self, ):
+        return checkErr(lib.rtcDeleteTrack, self.id, )
+    def get_track_description(self):
+        return outString(lib.rtcGetTrackDescription, self.id)
+    def get_track_mid(self):
+        return outString(lib.rtcGetTrackMid, self.id)
+    def chain_rtcp_sr_reporter(self, ):
+        return checkErr(lib.rtcChainRtcpSrReporter, self.id, )
+    track_description = property(get_track_description, )
+    track_mid = property(get_track_mid, )
+    
 
 class PeerConnection:
     # C bindings PeerConnection ids to objects of this class
@@ -319,6 +330,8 @@ class PeerConnection:
         return checkErr(lib.rtcGetSelectedCandidatePair, self.id, local, localSize, remote, remoteSize, )
     def get_max_data_channel_stream(self, ):
         return checkErr(lib.rtcGetMaxDataChannelStream, self.id, )
+    def get_remote_max_message_size(self, ):
+        return checkErr(lib.rtcGetRemoteMaxMessageSize, self.id, )
     def create_data_channel(self, label, ):
         return checkErr(lib.rtcCreateDataChannel, self.id, label, )
     def add_track(self, mediaDescriptionSdp, ):
@@ -331,6 +344,7 @@ class PeerConnection:
     remote_address = property(get_remote_address, )
     selected_candidate_pair = property(get_selected_candidate_pair, )
     max_data_channel_stream = property(get_max_data_channel_stream, )
+    remote_max_message_size = property(get_remote_max_message_size, )
     
     def set_local_description(self, type=ffi.NULL):
         return checkErr(lib.rtcSetLocalDescription, self.id, type, )
