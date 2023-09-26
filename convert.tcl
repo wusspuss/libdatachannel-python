@@ -1,4 +1,9 @@
-set headerPath /usr/include/rtc/rtc.h
+foreach possiblePath {/usr/local/include/rtc/rtc.h /usr/include/rtc/rtc.h} {
+    if {[file exists $possiblePath]} {
+	set headerPath $possiblePath
+    }
+}
+
 proc snakeCase val {
     # HelloWorld -> hello_world
     join [lmap word [regexp -all -inline {[A-Z][a-z]*} $val] {string tolower $word}] _
@@ -33,7 +38,7 @@ set header [string trim [exec sed  -e {1,/\/\/ libdatachannel C API/d} \
 			     -e {/#if*/d} \
 			     -e {/#endif*/d} \
 			     -e {/\} \/\/ extern "C"/d} \
-			     /usr/include/rtc/rtc.h]]
+			     $headerPath]]
 
 proc pythonMarshalArgsForDef {argList} {
     global enums
