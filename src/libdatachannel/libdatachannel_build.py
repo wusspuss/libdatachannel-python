@@ -157,6 +157,8 @@ int rtcGetSelectedCandidatePair(int pc, char *local, int localSize, char *remote
 
 int rtcGetMaxDataChannelStream(int pc);
 
+int rtcGetRemoteMaxMessageSize(int pc);
+
 // DataChannel, Track, and WebSocket common API
 
 int rtcSetOpenCallback(int id, rtcOpenCallbackFunc cb);

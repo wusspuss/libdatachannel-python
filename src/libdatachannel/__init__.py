@@ -357,6 +357,13 @@ class PeerConnection:
     _generated_add_track=add_track
     def add_track(self, mediaDescriptionSdp, ):
         return Track(self._generated_add_track(mediaDescriptionSdp))
+
+    def get_selected_candidate_pair(self):
+        max_size=checkErr(lib.rtcGetSelectedCandidatePair, self.id, ffi.NULL, 0, ffi.NULL, 0, )
+        remote_buf=ffi.new(f"char[{max_size}]")
+        local_buf=ffi.new(f"char[{max_size}]")
+        checkErr(lib.rtcGetSelectedCandidatePair, self.id, local_buf, max_size, remote_buf, max_size, )
+        return ffi.string(local_buf).decode(), ffi.string(remote_buf).decode()
     
 def init_logger(level):
     lib.rtcInitLogger(level.value, ffi.NULL)
