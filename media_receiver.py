@@ -1,6 +1,6 @@
 import socket
 import json
-from libdatachannel import libdatachannel
+import libdatachannel
 
 libdatachannel.init_logger(libdatachannel.LogLevel.LOG_VERBOSE)
 
