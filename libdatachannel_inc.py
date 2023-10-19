@@ -58,8 +58,10 @@ class PeerConnection:
     # C bindings PeerConnection ids to objects of this class
     assoc = {}
     
-    def __init__(self):
+    def __init__(self, ice_servers=[]):
         self.conf=ffi.new("rtcConfiguration *")
+        self.conf.iceServers = ffi.new("char*[]", [ffi.new("char[]", s.encode("latin1")) for s in ice_servers])
+        self.conf.iceServersCount = len(ice_servers)
         self.id=lib.rtcCreatePeerConnection(self.conf)
         self.conf=ffi.gc(self.conf, lambda *args: lib.rtcDeletePeerConnection(self.id))
         self.assoc[self.id]=self
