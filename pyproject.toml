@@ -6,9 +6,9 @@ build-backend = "setuptools.build_meta"
 name = "libdatachannel"
 version = "0.0.1"
 authors = [
-  { name="Example Author", email="author@example.com" },
+  { name="wusspuss", email="wuss.puss@yandex.ru" },
 ]
-description = "A small example package"
+description = "Bindings for libdatachannel"
 readme = "README.md"
 requires-python = ">=3.7"
 classifiers = [
@@ -20,7 +20,5 @@ dependencies = [
     "cffi",
 ]
 [project.urls]
-"Homepage" = "https://github.com/pypa/sampleproject"
-"Bug Tracker" = "https://github.com/pypa/sampleproject/issues"
-# [tool.setuptools.packages.find]
-# where = ["libdatachannel"]  # ["."] by default
+"Homepage" = "https://github.com/wusspuss/libdatachannel-python"
+"Bug Tracker" = "https://github.com/wusspuss/libdatachannel-python/issues"
