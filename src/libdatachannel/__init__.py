@@ -54,6 +54,7 @@ class Codec(Enum):
     CODEC_VP8=1
     CODEC_VP9=2
     CODEC_H265=3
+    CODEC_AV1=4
     CODEC_OPUS=128
     CODEC_PCMU=129
     CODEC_PCMA=130
@@ -226,6 +227,8 @@ class CommonChannel:
         return checkErr(lib.rtcClose, self.id, )
     def delete(self, ):
         return checkErr(lib.rtcDelete, self.id, )
+    def max_message_size(self, ):
+        return checkErr(lib.rtcMaxMessageSize, self.id, )
     def get_buffered_amount(self, ):
         return checkErr(lib.rtcGetBufferedAmount, self.id, )
     def set_buffered_amount_low_threshold(self, amount, ):
@@ -274,9 +277,6 @@ class PeerConnection:
     
     def __init__(self, ice_servers=[]):
         self.conf=ffi.new("rtcConfiguration *")
-        # ice_servers
-        # ice_servers_bytes_list = [ffi.new("char[]", s.encode("latin1")) for s in ice_servers]
-        # ice_servers_pointer = ffi.new("char*[]", ice_servers_bytes_list)
         self.conf.iceServers = ffi.new("char*[]", [ffi.new("char[]", s.encode("latin1")) for s in ice_servers])
         self.conf.iceServersCount = len(ice_servers)
         self.id=lib.rtcCreatePeerConnection(self.conf)
