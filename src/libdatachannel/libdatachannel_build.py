@@ -56,6 +56,7 @@ typedef enum {
 	RTC_CODEC_VP8 = 1,
 	RTC_CODEC_VP9 = 2,
 	RTC_CODEC_H265 = 3,
+	RTC_CODEC_AV1 = 4,
 
 	// audio
 	RTC_CODEC_OPUS = 128,
@@ -156,7 +157,6 @@ int rtcGetSelectedCandidatePair(int pc, char *local, int localSize, char *remote
                                              int remoteSize);
 
 int rtcGetMaxDataChannelStream(int pc);
-
 int rtcGetRemoteMaxMessageSize(int pc);
 
 // DataChannel, Track, and WebSocket common API
@@ -171,6 +171,7 @@ int rtcDelete(int id);
 bool rtcIsOpen(int id);
 bool rtcIsClosed(int id);
 
+int rtcMaxMessageSize(int id);
 int rtcGetBufferedAmount(int id); // total size buffered to send
 int rtcSetBufferedAmountLowThreshold(int id, int amount);
 int rtcSetBufferedAmountLowCallback(int id, rtcBufferedAmountLowCallbackFunc cb);
@@ -257,9 +258,14 @@ typedef struct {
 	uint16_t sequenceNumber;
 	uint32_t timestamp;
 
-	// H264/H265
+	// H264/H265 only
 	rtcNalUnitSeparator nalSeparator; // NAL unit separator
-	uint16_t maxFragmentSize;         // Maximum NAL unit fragment size
+
+	// H264, H265, AV1
+	uint16_t maxFragmentSize; // Maximum fragment size
+
+	// AV1 only
+	rtcObuPacketization obuPacketization; // OBU paketization for AV1 samples
 
 } rtcPacketizationHandlerInit;
 
@@ -289,6 +295,9 @@ int rtcSetH264PacketizationHandler(int tr, const rtcPacketizationHandlerInit *in
 
 // Set H265PacketizationHandler for track
 int rtcSetH265PacketizationHandler(int tr, const rtcPacketizationHandlerInit *init);
+
+// Set AV1PacketizationHandler for track
+int rtcSetAV1PacketizationHandler(int tr, const rtcPacketizationHandlerInit *init);
 
 // Set OpusPacketizationHandler for track
 int rtcSetOpusPacketizationHandler(int tr, const rtcPacketizationHandlerInit *init);

@@ -2,6 +2,7 @@ import json
 import time
 from cffi import FFI
 from enum import IntEnum
+from _libdatachannel_cffi import ffi, lib
 
 # {{FFI_BOILERPLATE}}
 
