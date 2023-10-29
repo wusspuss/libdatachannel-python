@@ -93,6 +93,7 @@ proc pythonMarshalArgsForCb {argList} {
 
 proc doCallbackTypes {header} {
     global cbArgs
+    # puts [regexp -inline -all {typedef void\(\*([^\)]*)\)\((int [^\)]*)} $header]
     # walk over callback types and store what args they need
     foreach {- cbName args} [regexp -inline -all {typedef void\(\*([^\)]*)\)\((int [^\)]*)} $header] {
 	# remove newlines
@@ -297,5 +298,6 @@ append o "from enum import Enum\n"
 append o "from _libdatachannel_cffi import ffi, lib\n\n"
 append o $res(enums)
 append o $res(cbs_defs)
+append o {//test}
 append o \n[generateErrors $header]\n
 exec echo [string map [eval list $replacements] [exec cat libdatachannel_inc.py]] > src/libdatachannel/__init__.py
