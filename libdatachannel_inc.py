@@ -4,7 +4,29 @@ from cffi import FFI
 from enum import IntEnum
 from _libdatachannel_cffi import ffi, lib
 
+class RtcError(Exception):
+    @staticmethod
+    def from_code(i):
+        return {-1: Invalid, -2: Failure, -3: NotAvail, -4: TooSmall}[i]
+
+class Invalid(RtcError):
+    pass
+
+class Failure(RtcError):
+    pass
+
+class NotAvail(RtcError):
+    pass
+
+class TooSmall(RtcError):
+    pass
+
+
 # {{FFI_BOILERPLATE}}
+
+# {{ENUMS}}
+
+# {{PYTHON_CALLBACK_WRAPPERS}}
 
 @ffi.def_extern()
 def wrapper_message_callback(id, message, size, ptr):
@@ -34,26 +56,29 @@ def outString(func, id_):
 
 class CommonChannel:
     assoc = {}
-    
     # DataChannel, Track, and WebSocket common API
     def __init__(self, id_):
         self.id=id_
         self.assoc[self.id]=self
-        pass
-        # {{ NONE_INITIALIZE_CALLBACKS_COMMON_CHANNEL }}
+# {{ NONE_INITIALIZE_CALLBACKS_COMMON_CHANNEL }}
+
+    def send_message(self, data: bytes):
+        return checkErr(lib.rtcSendMessage, self.id, data, len(data))
+    
+
     @classmethod
     def get_by_id(cls, id_):
         return cls.assoc.get(id_) or cls(id_)
-    # {{METHODS_COMMON_CHANNEL}}
+# {{METHODS_COMMON_CHANNEL}}
 
 class DataChannel(CommonChannel):
     def __init__(self, pc, name):
         super().__init__(lib.rtcCreateDataChannel(pc.id, name.encode()))
-    # {{METHODS_DATA_CHANNEL}}
+# {{METHODS_DATA_CHANNEL}}
 
 class Track(CommonChannel):
+# {{METHODS_TRACK}}
     pass
-    # {{METHODS_TRACK}}
 
 class PeerConnection:
     # C bindings PeerConnection ids to objects of this class
@@ -66,8 +91,11 @@ class PeerConnection:
         self.id=lib.rtcCreatePeerConnection(self.conf)
         self.conf=ffi.gc(self.conf, lambda *args: lib.rtcDeletePeerConnection(self.id))
         self.assoc[self.id]=self
-        # {{ NONE_INITIALIZE_CALLBACKS_PEER_CONNECTION }}
+# {{ NONE_INITIALIZE_CALLBACKS_PEER_CONNECTION }}
 
+    @classmethod
+    def get_by_id(cls, id_):
+        return cls.assoc.get(id_) or cls(id_)
     def __enter__(self):
         return self
 
@@ -78,13 +106,13 @@ class PeerConnection:
         lib.rtcDeletePeerConnection(self.id)
         del self.assoc[self.id]
 
-    # {{METHODS_PEER_CONNECTION}}
+# {{METHODS_PEER_CONNECTION}}
     def set_local_description(self, type=ffi.NULL):
         return checkErr(lib.rtcSetLocalDescription, self.id, type, )
     
     # optional arg
     def override_set_remote_description(self, desc):
-        self.set_remote_description(desc, ffi.NULL)
+        return checkErr(lib.rtcSetRemoteDescription, self.id, desc.encode(), ffi.NULL)
     remote_description=property(get_remote_description, override_set_remote_description)
 
     _generated_add_track=add_track

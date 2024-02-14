@@ -1,5 +1,8 @@
 import re
+from collections import defaultdict
 
+
+methods_blacklist=['rtcSendMessage']
 def camel_to_snake(name):
     name = re.sub('(.)([A-Z][a-z]+)', r'\1_\2', name)
     return re.sub('([a-z0-9])([A-Z])', r'\1_\2', name).lower()
@@ -44,7 +47,8 @@ for line in funcs_header_lines:
     except IndexError:
         skipped.append(line)
         continue
-
+    if c_func_name in methods_blacklist:
+        continue
     if c_func_name.endswith('Callback'):
         continue
     # make "char *s" into "char* s"
@@ -64,7 +68,7 @@ for line in funcs_header_lines:
     
     if args[1:]==[['char*', 'buffer'], ['int','size']]:        
         class_methods[args[0][1]].append(''.join([
-            '    ', f"def {pythonic_name}(self, buffer: bytes):\n"
+            '    ', f"def {pythonic_name}(self):\n"
             '    ', '    ',  f'return outString(lib.{c_func_name}, self.id)'
         ]))
         continue
@@ -97,7 +101,7 @@ for enum in re.findall(r'typedef enum[^;]*;', enums_header.replace('\t',''), re.
     enum_name=re.findall(r'rtc(\S+);$', enum)[0]
     enum_names.append(enum_name)
     python_enums.append(f'class {enum_name}(IntEnum):\n')
-    for name, value in (re.findall(r'RTC_(.*?) = (.*?),', enum)):
+    for name, value in (re.findall(r'RTC_(.*?) = (.*?)[,\n]', enum)):
         python_enums.append(f'    {name} = {value}\n')
     python_enums.append('\n')
 
@@ -110,14 +114,13 @@ callback_typedefs_info={}
 for cb_name, cb_args in re.findall(r'(rtc.*?CallbackFunc)\)\((.*?)\)', callbacks_header, re.DOTALL):
     callback_typedefs_info[cb_name]={}
     python_cb_marshaller=[]
-    # "rtcLogLevel level, const char *message" -> [['rtcLogLevel', 'level'], ['char*', 'message']]
+    # e.g. "rtcLogLevel level, const char *message" -> [['rtcLogLevel', 'level'], ['char*', 'message']]
     cb_args=re.sub(r'\s+', ' ', cb_args)
     callback_typedefs_info[cb_name]['cb_args']=cb_args
     cb_args = [arg_pair.split() for arg_pair in cb_args\
                .replace(' *', '* ')\
                .replace('const', '')\
                .split(', ')]
-    # print(cb_name,cb_args)
     cb_class=None
     callback_typedefs_info[cb_name]['python_args']=', '.join([name for type_,name in cb_args])
     if cb_args[0][0]=='int' and cb_args[0][1] in ['tr','id','pc']:
@@ -133,12 +136,11 @@ for cb_name, cb_args in re.findall(r'(rtc.*?CallbackFunc)\)\((.*?)\)', callbacks
         elif type_[3:] in enum_names:
             python_cb_marshaller.append(f'{type_[3:]}({name}), ')
     python_cb_marshaller=''.join(python_cb_marshaller)
-    # print(cb_name)
 
     
     callback_typedefs_info[cb_name]['class']=cb_class
     callback_typedefs_info[cb_name]['marshaller']=python_cb_marshaller
-from collections import defaultdict
+
 callback_setters_per_class=defaultdict(list)
 python_callback_wrappers=[]
 callback_cdefs=[]
@@ -157,7 +159,6 @@ for (callback_setter, cb_type) in re.findall(r'int (rtcSet.*Callback)\(int .., (
 
     cls_names={'pc': 'PeerConnection', 'id': 'CommonChannel'}
     callback_setters_per_class[typedef_info['class']].append(callback_setter)
-    python_callback_wrappers.append('    print("CB CALLED")\n') 
     python_callback_wrappers.append('    ')
     python_callback_wrappers.append(f'cb = {cls_names[typedef_info["class"]]}')
     python_callback_wrappers.append(f'.get_by_id({typedef_info["class"]})')
@@ -172,7 +173,15 @@ callback_cdefs = '\n'.join(callback_cdefs)
 cdef_input='\n'.join([enums_header, structs_header, callbacks_header, funcs_header, callback_cdefs])
 python_callback_wrappers = ''.join(python_callback_wrappers)
 
+for class_ in class_methods:
+    for property_ in re.findall('def get_(.*)\(', class_methods[class_]):
+        if re.findall(f'def set_{property}\(', class_methods[class_]):
+            class_methods[class_]+=f'\n    {property_} = property(get_{property_}, set_{property_})'
+        else:
+            class_methods[class_]+=f'\n    {property_} = property(get_{property_})'
+
 callback_none_init_per_class={}
+
 for class_, callback_setters in callback_setters_per_class.items():
     callback_none_init_per_class[class_]=[]
     for callback_setter in callback_setters:
@@ -181,7 +190,7 @@ for class_, callback_setters in callback_setters_per_class.items():
                                                     f'lib.wrapper_{python_callback_name})\n'
                                                     f'        self.{python_callback_name}=None\n')
     callback_none_init_per_class[class_]=''.join(callback_none_init_per_class[class_])
-# print(callback_none_init_per_class)
+
 python_callback_name = camel_to_snake(callback_setter[6:])
 
 with open('libdatachannel_inc.py', 'r') as f:
@@ -195,8 +204,10 @@ template=template.replace('# {{METHODS_COMMON_CHANNEL}}', class_methods['id']) \
                  .replace('# {{PYTHON_CALLBACK_WRAPPERS}}', python_callback_wrappers) \
                  .replace('# {{ NONE_INITIALIZE_CALLBACKS_PEER_CONNECTION }}', callback_none_init_per_class['pc'])\
                  .replace('# {{ NONE_INITIALIZE_CALLBACKS_COMMON_CHANNEL }}', callback_none_init_per_class['id'])
+
 with open("src/libdatachannel/__init__.py", "w") as f:
     f.write(template)
+
 with open("src/libdatachannel/libdatachannel_build.py", "w") as f:
     f.write('''
 from cffi import FFI
