@@ -78,5 +78,64 @@ class PeerConnectionTest(unittest.IsolatedAsyncioTestCase):
         pc1.delete()
         pc2.delete()
 
+    async def test_local_send_and_receive_message_with_scheduler(self):
+        """
+        Create two peer connections, send message from one to the other,
+        having callbacks automatically called in this thread
+        """
+        libdatachannel.threadsafe_scheduler=asyncio.get_event_loop().call_soon_threadsafe
+        def gathering_state_change_cb(state, future):
+            if state==libdatachannel.GatheringState.GATHERING_COMPLETE:
+                future.set_result(None)
+                
+
+        pc1=libdatachannel.PeerConnection()
+        pc2=libdatachannel.PeerConnection()
+
+        track_description = '\n'.join([
+            "audio 9 UDP/TLS/RTP/SAVPF 0",
+            "c=IN IP4 0.0.0.0",
+            "a=rtpmap:0 PCMU/8000",
+            "a=mid:audio",
+            "a=sendrecv",
+            "a=rtcp-mux",
+            "a=rtcp:9 IN IP4 0.0.0.0",
+        ])
+        tr2_future=asyncio.Future()
+        
+        tr1 = pc1.add_track(track_description)
+        tr1.open_callback=lambda: print(1234)
+        pc1_future=asyncio.Future()
+        pc2_future=asyncio.Future()
+        pc1.gathering_state_change_callback=lambda st:gathering_state_change_cb(st,pc1_future)
+        pc2.gathering_state_change_callback=lambda st:gathering_state_change_cb(st,pc2_future)
+
+        # send offer from pc1 to pc2
+        pc1.set_local_description()
+        await pc1_future
+        pc2.track_callback=tr2_future.set_result
+        pc2.set_remote_description(pc1.local_description, 'offer')
+        await pc2_future
+        # send answer from pc2 to pc1
+        pc1.set_remote_description(pc2.local_description, 'answer')
+
+        tr1_open_future=asyncio.Future()
+        tr2_open_future=asyncio.Future()
+        tr2=await tr2_future
+        tr2.open_callback=lambda: tr2_open_future.set_result(None)
+        tr1.open_callback=lambda: tr1_open_future.set_result(None)
+        await asyncio.gather(tr1_open_future, tr2_open_future)
+
+        tr1_message_future=asyncio.Future()
+        tr1.message_callback=lambda msg,size: tr1_message_future.set_result(msg)
+        tr2.send_message(example_rtp_packet)
+
+        
+        await tr1_message_future
+        # at least the message got through - but the rtp packet bytes are different
+        
+        pc1.delete()
+        pc2.delete()
+
 if __name__ == '__main__':
     unittest.main()

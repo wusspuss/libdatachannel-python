@@ -4,6 +4,8 @@ from cffi import FFI
 from enum import IntEnum
 from _libdatachannel_cffi import ffi, lib
 
+threadsafe_scheduler=lambda f, *args: f(*args)
+
 class RtcError(Exception):
     @staticmethod
     def from_code(i):
@@ -103,79 +105,79 @@ class NalUnitSeparator(IntEnum):
 @ffi.def_extern()
 def wrapper_local_description_callback(pc, sdp, type, ptr):
     cb = PeerConnection.get_by_id(pc).local_description_callback
-    cb and cb(ffi.string(sdp), ffi.string(type), )
+    cb and threadsafe_scheduler(cb, ffi.string(sdp), ffi.string(type), )
 
 @ffi.def_extern()
 def wrapper_local_candidate_callback(pc, cand, mid, ptr):
     cb = PeerConnection.get_by_id(pc).local_candidate_callback
-    cb and cb(ffi.string(cand), ffi.string(mid), )
+    cb and threadsafe_scheduler(cb, ffi.string(cand), ffi.string(mid), )
 
 @ffi.def_extern()
 def wrapper_state_change_callback(pc, state, ptr):
     cb = PeerConnection.get_by_id(pc).state_change_callback
-    cb and cb(State(state), )
+    cb and threadsafe_scheduler(cb, State(state), )
 
 @ffi.def_extern()
 def wrapper_ice_state_change_callback(pc, state, ptr):
     cb = PeerConnection.get_by_id(pc).ice_state_change_callback
-    cb and cb(IceState(state), )
+    cb and threadsafe_scheduler(cb, IceState(state), )
 
 @ffi.def_extern()
 def wrapper_gathering_state_change_callback(pc, state, ptr):
     cb = PeerConnection.get_by_id(pc).gathering_state_change_callback
-    cb and cb(GatheringState(state), )
+    cb and threadsafe_scheduler(cb, GatheringState(state), )
 
 @ffi.def_extern()
 def wrapper_signaling_state_change_callback(pc, state, ptr):
     cb = PeerConnection.get_by_id(pc).signaling_state_change_callback
-    cb and cb(SignalingState(state), )
+    cb and threadsafe_scheduler(cb, SignalingState(state), )
 
 @ffi.def_extern()
 def wrapper_open_callback(id, ptr):
     cb = CommonChannel.get_by_id(id).open_callback
-    cb and cb()
+    cb and threadsafe_scheduler(cb, )
 
 @ffi.def_extern()
 def wrapper_closed_callback(id, ptr):
     cb = CommonChannel.get_by_id(id).closed_callback
-    cb and cb()
+    cb and threadsafe_scheduler(cb, )
 
 @ffi.def_extern()
 def wrapper_error_callback(id, error, ptr):
     cb = CommonChannel.get_by_id(id).error_callback
-    cb and cb(ffi.string(error), )
+    cb and threadsafe_scheduler(cb, ffi.string(error), )
 
 @ffi.def_extern()
 def wrapper_message_callback(id, message, size, ptr):
     cb = CommonChannel.get_by_id(id).message_callback
-    cb and cb(ffi.string(message), )
+    cb and threadsafe_scheduler(cb, ffi.string(message), )
 
 @ffi.def_extern()
 def wrapper_buffered_amount_low_callback(id, ptr):
     cb = CommonChannel.get_by_id(id).buffered_amount_low_callback
-    cb and cb()
+    cb and threadsafe_scheduler(cb, )
 
 @ffi.def_extern()
 def wrapper_available_callback(id, ptr):
     cb = CommonChannel.get_by_id(id).available_callback
-    cb and cb()
+    cb and threadsafe_scheduler(cb, )
 
 @ffi.def_extern()
 def wrapper_data_channel_callback(pc, dc, ptr):
     cb = PeerConnection.get_by_id(pc).data_channel_callback
-    cb and cb(DataChannel.get_by_id(dc), )
+    cb and threadsafe_scheduler(cb, DataChannel.get_by_id(dc), )
 
 @ffi.def_extern()
 def wrapper_track_callback(pc, tr, ptr):
     cb = PeerConnection.get_by_id(pc).track_callback
-    cb and cb(Track.get_by_id(tr), )
+    cb and threadsafe_scheduler(cb, Track.get_by_id(tr), )
 
 
 
 @ffi.def_extern()
 def wrapper_message_callback(id, message, size, ptr):
     cb = CommonChannel.assoc[id].message_callback
-    cb and cb(ffi.buffer(message, size), size, )
+    cb and threadsafe_scheduler(cb, ffi.buffer(message, size), size, )
 
 def checkErr(func, *args, **kwargs):
     i=func(*args, **kwargs)
