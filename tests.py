@@ -67,7 +67,7 @@ class PeerConnectionTest(unittest.IsolatedAsyncioTestCase):
         await asyncio.gather(tr1_open_future, tr2_open_future)
 
         tr1_message_future=asyncio.Future()
-        tr1.message_callback=lambda msg,size: loop.call_soon_threadsafe(tr1_message_future.set_result, msg)
+        tr1.message_callback=lambda msg: loop.call_soon_threadsafe(tr1_message_future.set_result, msg)
         tr2.send_message(example_rtp_packet)
 
         
@@ -127,7 +127,7 @@ class PeerConnectionTest(unittest.IsolatedAsyncioTestCase):
         await asyncio.gather(tr1_open_future, tr2_open_future)
 
         tr1_message_future=asyncio.Future()
-        tr1.message_callback=lambda msg,size: tr1_message_future.set_result(msg)
+        tr1.message_callback=tr1_message_future.set_result
         tr2.send_message(example_rtp_packet)
 
         

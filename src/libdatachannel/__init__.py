@@ -177,7 +177,7 @@ def wrapper_track_callback(pc, tr, ptr):
 @ffi.def_extern()
 def wrapper_message_callback(id, message, size, ptr):
     cb = CommonChannel.assoc[id].message_callback
-    cb and threadsafe_scheduler(cb, ffi.buffer(message, size), size, )
+    cb and threadsafe_scheduler(cb, ffi.buffer(message, size), )
 
 def checkErr(func, *args, **kwargs):
     i=func(*args, **kwargs)
