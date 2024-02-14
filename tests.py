@@ -4,8 +4,29 @@ import libdatachannel
 import unittest
 example_rtp_packet = b"\x80\x80\n\xa8\xbd.\x0b\x1d/(\xfe\x9cbY[TV_`ZWWZ[[\\YXXW]"
 b"_^do\xf8\xf7mge]^biknkfg_\\Z^bWOONLLKHHHHIJNQNMLLOPRTWTOSZagillf__]["
-
+track_description = '\n'.join([
+            "audio 9 UDP/TLS/RTP/SAVPF 0",
+            "c=IN IP4 0.0.0.0",
+            "a=rtpmap:0 PCMU/8000",
+            "a=mid:audio",
+            "a=sendrecv",
+            "a=rtcp-mux",
+            "a=rtcp:9 IN IP4 0.0.0.0",
+])
 # libdatachannel.init_logger(libdatachannel.LogLevel.LOG_DEBUG)
+
+def have_glib():
+    """
+    Used to skip GLib-related tests if it's not installed
+    """
+    try:
+        import gi
+        gi.require_version('GLib', '2.0')
+        from gi.repository import GLib
+    except (ImportError, ValueError):
+        return False
+    return True
+
 
 class PeerConnectionTest(unittest.IsolatedAsyncioTestCase):
     def test_init_no_args(self):
@@ -21,7 +42,9 @@ class PeerConnectionTest(unittest.IsolatedAsyncioTestCase):
     
     async def test_local_send_and_receive_message(self):
         """
-        Create two peer connections, send message from one to the other
+        Create two peer connections, send message from one to the other.
+        Uses the asyncio event loop and manually wraps callbacks to have them
+        invoked in the main thread.
         """
         loop=asyncio.get_event_loop()
         def gathering_state_change_cb(state, future):
@@ -44,7 +67,6 @@ class PeerConnectionTest(unittest.IsolatedAsyncioTestCase):
         tr2_future=asyncio.Future()
         
         tr1 = pc1.add_track(track_description)
-        tr1.open_callback=lambda: print(1234)
         pc1_future=asyncio.Future()
         pc2_future=asyncio.Future()
         pc1.gathering_state_change_callback=lambda st:gathering_state_change_cb(st,pc1_future)
@@ -74,14 +96,14 @@ class PeerConnectionTest(unittest.IsolatedAsyncioTestCase):
         await tr1_message_future
         # at least the message got through - but the rtp packet bytes are different
         
-        
         pc1.delete()
         pc2.delete()
 
-    async def test_local_send_and_receive_message_with_scheduler(self):
+    async def test_local_send_and_receive_message_with_async_with_scheduler(self):
         """
-        Create two peer connections, send message from one to the other,
-        having callbacks automatically called in this thread
+        Create two peer connections, send message from one to the other.
+        Uses the asyncio event loop and libdatachannel.threadsafe_scheduler to have callbacks
+        transparently invoked in the main thread.
         """
         libdatachannel.threadsafe_scheduler=asyncio.get_event_loop().call_soon_threadsafe
         def gathering_state_change_cb(state, future):
@@ -91,20 +113,9 @@ class PeerConnectionTest(unittest.IsolatedAsyncioTestCase):
 
         pc1=libdatachannel.PeerConnection()
         pc2=libdatachannel.PeerConnection()
-
-        track_description = '\n'.join([
-            "audio 9 UDP/TLS/RTP/SAVPF 0",
-            "c=IN IP4 0.0.0.0",
-            "a=rtpmap:0 PCMU/8000",
-            "a=mid:audio",
-            "a=sendrecv",
-            "a=rtcp-mux",
-            "a=rtcp:9 IN IP4 0.0.0.0",
-        ])
         tr2_future=asyncio.Future()
         
         tr1 = pc1.add_track(track_description)
-        tr1.open_callback=lambda: print(1234)
         pc1_future=asyncio.Future()
         pc2_future=asyncio.Future()
         pc1.gathering_state_change_callback=lambda st:gathering_state_change_cb(st,pc1_future)
@@ -136,6 +147,48 @@ class PeerConnectionTest(unittest.IsolatedAsyncioTestCase):
         
         pc1.delete()
         pc2.delete()
+        libdatachannel.threadsafe_scheduler=lambda f, *args: f(*args)
+
+    @unittest.skipIf(not have_glib(), "GLib not installed")
+    def test_local_send_and_receive_message_with_async_with_scheduler(self):
+        """
+        Create two peer connections, send message from one to the other.
+        Uses the GLib event loop and libdatachannel.threadsafe_scheduler to have callbacks
+        transparently invoked in the main thread.
+        Fugly...
+        """
+        from gi.repository import GLib
+        libdatachannel.threadsafe_scheduler=GLib.idle_add
+        loop = GLib.MainLoop()
+        pc1=libdatachannel.PeerConnection()
+        pc2=libdatachannel.PeerConnection()
+        tr1 = pc1.add_track(track_description)
+        def when_pc1_gathering_state_cb(st):
+            if st==libdatachannel.GatheringState.GATHERING_COMPLETE:
+                def when_pc2_gathering_state_cb(st):
+                    if st==libdatachannel.GatheringState.GATHERING_COMPLETE:
+                        pc1.set_remote_description(pc2.local_description, 'answer')
+                def when_pc2_on_track(tr):
+                    tr2=tr
+                    def when_tr2_open():
+                        tr2.send_message(example_rtp_packet)
+                        
+                    def on_tr1_message(msg):
+                        loop.quit()
+                    tr2.open_callback=when_tr2_open
+                    tr1.message_callback=on_tr1_message
+                    
+                pc2.track_callback=when_pc2_on_track
+                pc2.gathering_state_change_callback=when_pc2_gathering_state_cb
+                pc2.set_remote_description(pc1.local_description, 'offer')
+                
+        pc1.gathering_state_change_callback=when_pc1_gathering_state_cb
+        pc1.set_local_description()
+        loop.run()
+        pc1.delete()
+        pc2.delete()
+        libdatachannel.threadsafe_scheduler=lambda f, *args: f(*args)
+        
 
 if __name__ == '__main__':
     unittest.main()

@@ -164,7 +164,7 @@ for (callback_setter, cb_type) in re.findall(r'int (rtcSet.*Callback)\(int .., (
     python_callback_wrappers.append(f'.get_by_id({typedef_info["class"]})')
     python_callback_wrappers.append(f'.{cb_name}\n')
     python_callback_wrappers.append('    ')
-    python_callback_wrappers.append(f'cb and cb({typedef_info["marshaller"]})\n\n')
+    python_callback_wrappers.append(f'cb and threadsafe_scheduler(cb, {typedef_info["marshaller"]})\n\n')
 
     # cdef
     callback_cdefs.append(f'extern "Python" void wrapper_{python_callback_name}({typedef_info["cb_args"]});\n')

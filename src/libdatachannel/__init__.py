@@ -4,6 +4,14 @@ from cffi import FFI
 from enum import IntEnum
 from _libdatachannel_cffi import ffi, lib
 
+"""
+Libdatachannel per se calls all the callbacks in its own thread.
+It is often desirable to have them called on our main thread instead.
+For this, a wrapper function maybe provided here.
+For asyncio: asyncio.get_event_loop().call_soon_threadsafe
+For Glib: GLib.idle_add
+It should be trivial to implement the same for other event loops
+"""
 threadsafe_scheduler=lambda f, *args: f(*args)
 
 class RtcError(Exception):
