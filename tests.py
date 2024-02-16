@@ -172,7 +172,6 @@ class PeerConnectionTest(unittest.IsolatedAsyncioTestCase):
                     tr2=tr
                     def when_tr2_open():
                         tr2.send_message(example_rtp_packet)
-                        
                     def on_tr1_message(msg):
                         loop.quit()
                     tr2.open_callback=when_tr2_open
