@@ -9,7 +9,7 @@ def onGatheringStateChange(state, pc):
     if state == libdatachannel.GatheringState.GATHERING_COMPLETE:
         print(json.dumps({'sdp': pc.local_description, 'type': 'offer'}))
 
-def onMessage(message, size):
+def onMessage(message):
     sock.sendto(message, ('127.0.0.1', 5000))
     print('.', end='', flush=True)
 
