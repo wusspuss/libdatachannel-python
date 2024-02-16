@@ -14,6 +14,7 @@ It should be trivial to implement the same for other event loops
 """
 threadsafe_scheduler=lambda f, *args: f(*args)
 
+    
 class RtcError(Exception):
     @staticmethod
     def from_code(i):
@@ -40,8 +41,11 @@ class TooSmall(RtcError):
 
 @ffi.def_extern()
 def wrapper_message_callback(id, message, size, ptr):
+    # with just ffi.buffer() you can only use message in
+    # the very next Python func call,
+    # but after that it apparently gets freed() somehow, idk
     cb = CommonChannel.assoc[id].message_callback
-    cb and threadsafe_scheduler(cb, ffi.buffer(message, size), )
+    cb and threadsafe_scheduler(cb, bytes(ffi.buffer(message, size)))
 
 def checkErr(func, *args, **kwargs):
     i=func(*args, **kwargs)

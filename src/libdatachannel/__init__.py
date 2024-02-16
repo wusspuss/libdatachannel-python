@@ -14,6 +14,8 @@ It should be trivial to implement the same for other event loops
 """
 threadsafe_scheduler=lambda f, *args: f(*args)
 
+
+    
 class RtcError(Exception):
     @staticmethod
     def from_code(i):
@@ -185,7 +187,7 @@ def wrapper_track_callback(pc, tr, ptr):
 @ffi.def_extern()
 def wrapper_message_callback(id, message, size, ptr):
     cb = CommonChannel.assoc[id].message_callback
-    cb and threadsafe_scheduler(cb, ffi.buffer(message, size), )
+    cb and threadsafe_scheduler(cb, bytes(ffi.buffer(message, size)))
 
 def checkErr(func, *args, **kwargs):
     i=func(*args, **kwargs)
