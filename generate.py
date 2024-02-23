@@ -132,7 +132,7 @@ for cb_name, cb_args in re.findall(r'(rtc.*?CallbackFunc)\)\((.*?)\)', callbacks
             python_class = {'tr': 'Track', 'dc': 'DataChannel'}[name]
             python_cb_marshaller.append(f'{python_class}.get_by_id({name}), ')
         elif type_=='char*':
-            python_cb_marshaller.append(f'ffi.string({name}), ')
+            python_cb_marshaller.append(f'ffi.string({name}).decode(), ')
         elif type_[3:] in enum_names:
             python_cb_marshaller.append(f'{type_[3:]}({name}), ')
     python_cb_marshaller=''.join(python_cb_marshaller)

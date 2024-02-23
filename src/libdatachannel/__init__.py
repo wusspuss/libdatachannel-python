@@ -14,7 +14,6 @@ It should be trivial to implement the same for other event loops
 """
 threadsafe_scheduler=lambda f, *args: f(*args)
 
-
     
 class RtcError(Exception):
     @staticmethod
@@ -115,12 +114,12 @@ class NalUnitSeparator(IntEnum):
 @ffi.def_extern()
 def wrapper_local_description_callback(pc, sdp, type, ptr):
     cb = PeerConnection.get_by_id(pc).local_description_callback
-    cb and threadsafe_scheduler(cb, ffi.string(sdp), ffi.string(type), )
+    cb and threadsafe_scheduler(cb, ffi.string(sdp).decode(), ffi.string(type).decode(), )
 
 @ffi.def_extern()
 def wrapper_local_candidate_callback(pc, cand, mid, ptr):
     cb = PeerConnection.get_by_id(pc).local_candidate_callback
-    cb and threadsafe_scheduler(cb, ffi.string(cand), ffi.string(mid), )
+    cb and threadsafe_scheduler(cb, ffi.string(cand).decode(), ffi.string(mid).decode(), )
 
 @ffi.def_extern()
 def wrapper_state_change_callback(pc, state, ptr):
@@ -155,12 +154,12 @@ def wrapper_closed_callback(id, ptr):
 @ffi.def_extern()
 def wrapper_error_callback(id, error, ptr):
     cb = CommonChannel.get_by_id(id).error_callback
-    cb and threadsafe_scheduler(cb, ffi.string(error), )
+    cb and threadsafe_scheduler(cb, ffi.string(error).decode(), )
 
 @ffi.def_extern()
 def wrapper_message_callback(id, message, size, ptr):
     cb = CommonChannel.get_by_id(id).message_callback
-    cb and threadsafe_scheduler(cb, ffi.string(message), )
+    cb and threadsafe_scheduler(cb, ffi.string(message).decode(), )
 
 @ffi.def_extern()
 def wrapper_buffered_amount_low_callback(id, ptr):
@@ -186,6 +185,9 @@ def wrapper_track_callback(pc, tr, ptr):
 
 @ffi.def_extern()
 def wrapper_message_callback(id, message, size, ptr):
+    # with just ffi.buffer() you can only use message in
+    # the very next Python func call,
+    # but after that it apparently gets freed() somehow, idk
     cb = CommonChannel.assoc[id].message_callback
     cb and threadsafe_scheduler(cb, bytes(ffi.buffer(message, size)))
 
