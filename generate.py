@@ -183,13 +183,19 @@ for class_ in class_methods:
 callback_none_init_per_class={}
 
 for class_, callback_setters in callback_setters_per_class.items():
-    callback_none_init_per_class[class_]=[]
+    callback_none_init_per_class[class_] = []
     for callback_setter in callback_setters:
         python_callback_name = camel_to_snake(callback_setter[6:])
-        callback_none_init_per_class[class_].append(f'        lib.{callback_setter}(self.id,'
-                                                    f'lib.wrapper_{python_callback_name})\n'
-                                                    f'        self.{python_callback_name}=None\n')
-    callback_none_init_per_class[class_]=''.join(callback_none_init_per_class[class_])
+        s=' '*4
+        callback_none_init_per_class[class_].append(
+            f"{s*2}self._{python_callback_name}=None\n")
+        class_methods[class_]+=(f"\n{s}{python_callback_name}=property(lambda self: self."
+            f'_{python_callback_name}, lambda self, cb: setattr(self, "_{python_callback_name}", cb)\n'
+            f'{s*3}or lib.{callback_setter}(self.id, lib.wrapper_{python_callback_name} if cb else ffi.NULL))\n'
+        )
+    callback_none_init_per_class[class_] = "".join(
+        callback_none_init_per_class[class_]
+    )
 
 python_callback_name = camel_to_snake(callback_setter[6:])
 

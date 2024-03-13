@@ -150,7 +150,7 @@ class PeerConnectionTest(unittest.IsolatedAsyncioTestCase):
         libdatachannel.threadsafe_scheduler=lambda f, *args: f(*args)
 
     @unittest.skipIf(not have_glib(), "GLib not installed")
-    def test_local_send_and_receive_message_with_async_with_scheduler(self):
+    def test_local_send_and_receive_message_with_glib_with_scheduler(self):
         """
         Create two peer connections, send message from one to the other.
         Uses the GLib event loop and libdatachannel.threadsafe_scheduler to have callbacks
@@ -187,7 +187,51 @@ class PeerConnectionTest(unittest.IsolatedAsyncioTestCase):
         pc1.delete()
         pc2.delete()
         libdatachannel.threadsafe_scheduler=lambda f, *args: f(*args)
-        
+
+    @unittest.skipIf(not have_glib(), "GLib not installed")
+    def test_local_send_and_receive_message_with_glib_with_scheduler_with_receive_mesage(self):
+        """
+        Create two peer connections, send message from one to the other.
+        Uses the GLib event loop and libdatachannel.threadsafe_scheduler to have callbacks
+        transparently invoked in the main thread.
+        Use track.receive_message instead of message_callback
+        """
+        from gi.repository import GLib
+        libdatachannel.threadsafe_scheduler=GLib.idle_add
+        loop = GLib.MainLoop()
+        pc1=libdatachannel.PeerConnection()
+        pc2=libdatachannel.PeerConnection()
+        tr1 = pc1.add_track(track_description)
+        def when_pc1_gathering_state_cb(st):
+            if st==libdatachannel.GatheringState.GATHERING_COMPLETE:
+                def when_pc2_gathering_state_cb(st):
+                    if st==libdatachannel.GatheringState.GATHERING_COMPLETE:
+                        pc1.set_remote_description(pc2.local_description, 'answer')
+                def when_pc2_on_track(tr):
+                    tr2=tr
+                    def when_tr2_open():
+                        with self.assertRaises(libdatachannel.NotAvail):
+                            tr1.receive_message()
+                        tr2.send_message(example_rtp_packet)
+                    def on_tr1_available():
+                        print('available')
+                        tr1.receive_message()
+                        loop.quit()
+                    tr2.open_callback=when_tr2_open
+                    # tr1.message_callback=on_tr1_message
+                    tr1.available_callback=on_tr1_available
+                    
+                pc2.track_callback=when_pc2_on_track
+                pc2.gathering_state_change_callback=when_pc2_gathering_state_cb
+                pc2.set_remote_description(pc1.local_description, 'offer')
+                
+        pc1.gathering_state_change_callback=when_pc1_gathering_state_cb
+        pc1.set_local_description()
+        loop.run()
+        pc1.delete()
+        pc2.delete()
+        libdatachannel.threadsafe_scheduler=lambda f, *args: f(*args)
+
 
 if __name__ == '__main__':
     unittest.main()

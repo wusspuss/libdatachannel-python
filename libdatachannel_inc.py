@@ -78,7 +78,15 @@ class CommonChannel:
 
     def send_message(self, data: bytes):
         return checkErr(lib.rtcSendMessage, self.id, data, len(data))
-    
+
+    def receive_message(self):
+        int_ptr = ffi.new("int *")
+        int_ptr[0] = 0
+        buf=ffi.new(f"char[{int_ptr[0]}]")
+        lib.rtcReceiveMessage(self.id, buf, int_ptr)
+        buf=ffi.new(f"char[{int_ptr[0]}]")
+        checkErr(lib.rtcReceiveMessage, self.id, buf, int_ptr)
+        return buf
 
     @classmethod
     def get_by_id(cls, id_):

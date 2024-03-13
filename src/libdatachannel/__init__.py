@@ -218,23 +218,25 @@ class CommonChannel:
     def __init__(self, id_):
         self.id=id_
         self.assoc[self.id]=self
-        lib.rtcSetOpenCallback(self.id,lib.wrapper_open_callback)
-        self.open_callback=None
-        lib.rtcSetClosedCallback(self.id,lib.wrapper_closed_callback)
-        self.closed_callback=None
-        lib.rtcSetErrorCallback(self.id,lib.wrapper_error_callback)
-        self.error_callback=None
-        lib.rtcSetMessageCallback(self.id,lib.wrapper_message_callback)
-        self.message_callback=None
-        lib.rtcSetBufferedAmountLowCallback(self.id,lib.wrapper_buffered_amount_low_callback)
-        self.buffered_amount_low_callback=None
-        lib.rtcSetAvailableCallback(self.id,lib.wrapper_available_callback)
-        self.available_callback=None
+        self._open_callback=None
+        self._closed_callback=None
+        self._error_callback=None
+        self._message_callback=None
+        self._buffered_amount_low_callback=None
+        self._available_callback=None
 
 
     def send_message(self, data: bytes):
         return checkErr(lib.rtcSendMessage, self.id, data, len(data))
-    
+
+    def receive_message(self):
+        int_ptr = ffi.new("int *")
+        int_ptr[0] = 0
+        buf=ffi.new(f"char[{int_ptr[0]}]")
+        lib.rtcReceiveMessage(self.id, buf, int_ptr)
+        buf=ffi.new(f"char[{int_ptr[0]}]")
+        checkErr(lib.rtcReceiveMessage, self.id, buf, int_ptr)
+        return buf
 
     @classmethod
     def get_by_id(cls, id_):
@@ -255,6 +257,24 @@ class CommonChannel:
         return checkErr(lib.rtcSetNeedsToSendRtcpSr, self.id, )
     buffered_amount = property(get_buffered_amount)
     available_amount = property(get_available_amount)
+    open_callback=property(lambda self: self._open_callback, lambda self, cb: setattr(self, "_open_callback", cb)
+            or lib.rtcSetOpenCallback(self.id, lib.wrapper_open_callback if cb else ffi.NULL))
+
+    closed_callback=property(lambda self: self._closed_callback, lambda self, cb: setattr(self, "_closed_callback", cb)
+            or lib.rtcSetClosedCallback(self.id, lib.wrapper_closed_callback if cb else ffi.NULL))
+
+    error_callback=property(lambda self: self._error_callback, lambda self, cb: setattr(self, "_error_callback", cb)
+            or lib.rtcSetErrorCallback(self.id, lib.wrapper_error_callback if cb else ffi.NULL))
+
+    message_callback=property(lambda self: self._message_callback, lambda self, cb: setattr(self, "_message_callback", cb)
+            or lib.rtcSetMessageCallback(self.id, lib.wrapper_message_callback if cb else ffi.NULL))
+
+    buffered_amount_low_callback=property(lambda self: self._buffered_amount_low_callback, lambda self, cb: setattr(self, "_buffered_amount_low_callback", cb)
+            or lib.rtcSetBufferedAmountLowCallback(self.id, lib.wrapper_buffered_amount_low_callback if cb else ffi.NULL))
+
+    available_callback=property(lambda self: self._available_callback, lambda self, cb: setattr(self, "_available_callback", cb)
+            or lib.rtcSetAvailableCallback(self.id, lib.wrapper_available_callback if cb else ffi.NULL))
+
 
 class DataChannel(CommonChannel):
     def __init__(self, pc, name):
@@ -303,22 +323,14 @@ class PeerConnection:
         self.id=lib.rtcCreatePeerConnection(self.conf)
         self.conf=ffi.gc(self.conf, lambda *args: lib.rtcDeletePeerConnection(self.id))
         self.assoc[self.id]=self
-        lib.rtcSetLocalDescriptionCallback(self.id,lib.wrapper_local_description_callback)
-        self.local_description_callback=None
-        lib.rtcSetLocalCandidateCallback(self.id,lib.wrapper_local_candidate_callback)
-        self.local_candidate_callback=None
-        lib.rtcSetStateChangeCallback(self.id,lib.wrapper_state_change_callback)
-        self.state_change_callback=None
-        lib.rtcSetIceStateChangeCallback(self.id,lib.wrapper_ice_state_change_callback)
-        self.ice_state_change_callback=None
-        lib.rtcSetGatheringStateChangeCallback(self.id,lib.wrapper_gathering_state_change_callback)
-        self.gathering_state_change_callback=None
-        lib.rtcSetSignalingStateChangeCallback(self.id,lib.wrapper_signaling_state_change_callback)
-        self.signaling_state_change_callback=None
-        lib.rtcSetDataChannelCallback(self.id,lib.wrapper_data_channel_callback)
-        self.data_channel_callback=None
-        lib.rtcSetTrackCallback(self.id,lib.wrapper_track_callback)
-        self.track_callback=None
+        self._local_description_callback=None
+        self._local_candidate_callback=None
+        self._state_change_callback=None
+        self._ice_state_change_callback=None
+        self._gathering_state_change_callback=None
+        self._signaling_state_change_callback=None
+        self._data_channel_callback=None
+        self._track_callback=None
 
 
     @classmethod
@@ -372,6 +384,30 @@ class PeerConnection:
     remote_address = property(get_remote_address)
     max_data_channel_stream = property(get_max_data_channel_stream)
     remote_max_message_size = property(get_remote_max_message_size)
+    local_description_callback=property(lambda self: self._local_description_callback, lambda self, cb: setattr(self, "_local_description_callback", cb)
+            or lib.rtcSetLocalDescriptionCallback(self.id, lib.wrapper_local_description_callback if cb else ffi.NULL))
+
+    local_candidate_callback=property(lambda self: self._local_candidate_callback, lambda self, cb: setattr(self, "_local_candidate_callback", cb)
+            or lib.rtcSetLocalCandidateCallback(self.id, lib.wrapper_local_candidate_callback if cb else ffi.NULL))
+
+    state_change_callback=property(lambda self: self._state_change_callback, lambda self, cb: setattr(self, "_state_change_callback", cb)
+            or lib.rtcSetStateChangeCallback(self.id, lib.wrapper_state_change_callback if cb else ffi.NULL))
+
+    ice_state_change_callback=property(lambda self: self._ice_state_change_callback, lambda self, cb: setattr(self, "_ice_state_change_callback", cb)
+            or lib.rtcSetIceStateChangeCallback(self.id, lib.wrapper_ice_state_change_callback if cb else ffi.NULL))
+
+    gathering_state_change_callback=property(lambda self: self._gathering_state_change_callback, lambda self, cb: setattr(self, "_gathering_state_change_callback", cb)
+            or lib.rtcSetGatheringStateChangeCallback(self.id, lib.wrapper_gathering_state_change_callback if cb else ffi.NULL))
+
+    signaling_state_change_callback=property(lambda self: self._signaling_state_change_callback, lambda self, cb: setattr(self, "_signaling_state_change_callback", cb)
+            or lib.rtcSetSignalingStateChangeCallback(self.id, lib.wrapper_signaling_state_change_callback if cb else ffi.NULL))
+
+    data_channel_callback=property(lambda self: self._data_channel_callback, lambda self, cb: setattr(self, "_data_channel_callback", cb)
+            or lib.rtcSetDataChannelCallback(self.id, lib.wrapper_data_channel_callback if cb else ffi.NULL))
+
+    track_callback=property(lambda self: self._track_callback, lambda self, cb: setattr(self, "_track_callback", cb)
+            or lib.rtcSetTrackCallback(self.id, lib.wrapper_track_callback if cb else ffi.NULL))
+
     def set_local_description(self, type=ffi.NULL):
         return checkErr(lib.rtcSetLocalDescription, self.id, type, )
     
